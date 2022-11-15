@@ -1,6 +1,7 @@
 package aws_cgw_dynupdate
 
 import (
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -16,11 +17,16 @@ const (
 )
 
 var (
-	vpnConnectionId   string
-	customerGatewayId string
+	vpnConnectionId   *string
+	customerGatewayId *string
 )
 
-func UpdateCgwDynamicIpAddress(svc *ec2.EC2, vpnId string) error {
+func UpdateCgwDynamicIpAddress(svc *ec2.EC2, vpnId *string) error {
+
+	if vpnId == nil {
+		return errors.New("vpnId cannot be null")
+	}
+
 	vpnConnectionId = vpnId
 
 	vpnOutput, err := describeVpnConnection(svc)
@@ -28,7 +34,7 @@ func UpdateCgwDynamicIpAddress(svc *ec2.EC2, vpnId string) error {
 		return err
 	}
 
-	customerGatewayId = *vpnOutput.VpnConnections[0].CustomerGatewayId
+	customerGatewayId = vpnOutput.VpnConnections[0].CustomerGatewayId
 	cgwOutput, err := describeCustomerGateway(svc)
 	if err != nil {
 		return err
@@ -60,7 +66,7 @@ func UpdateCgwDynamicIpAddress(svc *ec2.EC2, vpnId string) error {
 
 	klog.Infof("Created CGW IP with remote IP address: %s", *newCgwOutput.CustomerGateway.IpAddress)
 
-	mvpnOutput, err := modifyVpnConnection(svc, *vpnOutput.VpnConnections[0].VpnConnectionId, *newCgwOutput.CustomerGateway.CustomerGatewayId)
+	mvpnOutput, err := modifyVpnConnection(svc, vpnOutput.VpnConnections[0].VpnConnectionId, newCgwOutput.CustomerGateway.CustomerGatewayId)
 	if err != nil {
 		klog.Infof("Assigning CGW: %s to VPN: %s failed!", *newCgwOutput.CustomerGateway.CustomerGatewayId, *mvpnOutput.VpnConnection.VpnConnectionId)
 		return err
@@ -79,7 +85,7 @@ func UpdateCgwDynamicIpAddress(svc *ec2.EC2, vpnId string) error {
 
 func describeVpnConnection(svc *ec2.EC2) (vpnOutput *ec2.DescribeVpnConnectionsOutput, err error) {
 	vpnInput := &ec2.DescribeVpnConnectionsInput{
-		VpnConnectionIds: []*string{aws.String(vpnConnectionId)},
+		VpnConnectionIds: []*string{vpnConnectionId},
 	}
 
 	vpnOutput, err = svc.DescribeVpnConnections(vpnInput)
@@ -90,10 +96,10 @@ func describeVpnConnection(svc *ec2.EC2) (vpnOutput *ec2.DescribeVpnConnectionsO
 	return
 }
 
-func modifyVpnConnection(svc *ec2.EC2, vpnId, cgwId string) (vpnOutput *ec2.ModifyVpnConnectionOutput, err error) {
+func modifyVpnConnection(svc *ec2.EC2, vpnId, cgwId *string) (vpnOutput *ec2.ModifyVpnConnectionOutput, err error) {
 	vpnInput := &ec2.ModifyVpnConnectionInput{
-		VpnConnectionId:   aws.String(vpnId),
-		CustomerGatewayId: aws.String(cgwId),
+		VpnConnectionId:   vpnId,
+		CustomerGatewayId: cgwId,
 	}
 
 	vpnOutput, err = svc.ModifyVpnConnection(vpnInput)
@@ -106,7 +112,7 @@ func modifyVpnConnection(svc *ec2.EC2, vpnId, cgwId string) (vpnOutput *ec2.Modi
 
 func describeCustomerGateway(svc *ec2.EC2) (customerGatewayOutput *ec2.DescribeCustomerGatewaysOutput, err error) {
 	customerGatewayInput := &ec2.DescribeCustomerGatewaysInput{
-		CustomerGatewayIds: []*string{aws.String(customerGatewayId)},
+		CustomerGatewayIds: []*string{customerGatewayId},
 	}
 
 	customerGatewayOutput, err = svc.DescribeCustomerGateways(customerGatewayInput)
@@ -137,9 +143,9 @@ func createCustomerGateway(svc *ec2.EC2, cgwType, ipAddress, bgpAsn string) (cgw
 	return cgwOutput, nil
 }
 
-func deleteCustomerGateway(svc *ec2.EC2, cgwId string) (cgwOutput *ec2.DeleteCustomerGatewayOutput, err error) {
+func deleteCustomerGateway(svc *ec2.EC2, cgwId *string) (cgwOutput *ec2.DeleteCustomerGatewayOutput, err error) {
 	cgwInput := &ec2.DeleteCustomerGatewayInput{
-		CustomerGatewayId: aws.String(cgwId),
+		CustomerGatewayId: cgwId,
 	}
 
 	cgwOutput, err = svc.DeleteCustomerGateway(cgwInput)

@@ -29,7 +29,7 @@ func main() {
 		svc = ec2.New(sess, aws.NewConfig().WithMaxRetries(int(*maxRetries)))
 	}
 
-	err := dynupdate.UpdateCgwDynamicIpAddress(svc, *vpnConnectionId)
+	err := dynupdate.UpdateCgwDynamicIpAddress(svc, vpnConnectionId)
 	if err != nil {
 		klog.Fatalln(err)
 	}
