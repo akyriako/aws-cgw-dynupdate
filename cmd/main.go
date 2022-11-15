@@ -11,8 +11,11 @@ import (
 )
 
 var (
-	vpnConnectionId = flag.String("vpnConnectionId", "", "VPN Connection ID")
+	vpnConnectionId = flag.String("vpnConnectionId", "", "vpn connection id")
+	debug           = flag.Bool("debug", false, "debug mode")
+	maxRetries      = flag.Uint("maxRetries", 3, "max retries on request failure")
 	sess            *session.Session
+	svc             *ec2.EC2
 )
 
 func main() {
@@ -20,8 +23,11 @@ func main() {
 
 	klog.Infof("Started dynamic IP address update for VPN: %s", *vpnConnectionId)
 
-	//svc := ec2.New(sess, aws.NewConfig().WithLogLevel(aws.LogDebug))
-	svc := ec2.New(sess, aws.NewConfig())
+	if *debug {
+		svc = ec2.New(sess, aws.NewConfig().WithLogLevel(aws.LogDebug).WithMaxRetries(int(*maxRetries)))
+	} else {
+		svc = ec2.New(sess, aws.NewConfig().WithMaxRetries(int(*maxRetries)))
+	}
 
 	err := dynupdate.UpdateCgwDynamicIpAddress(svc, *vpnConnectionId)
 	if err != nil {
